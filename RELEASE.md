@@ -85,13 +85,17 @@ git add go.mod go.sum vendor
 Either upgrade the dependencies within their existing version constraints as specified in the `package.json` file (see https://docs.npmjs.com/files/package.json#dependencies):
 
 ```
-cd web/ui/react-app && yarn upgrade
+cd web/ui/react-app
+yarn upgrade
+git add yarn.lock
 ```
 
 Or alternatively, update all dependencies to their latest major versions. This is potentially more disruptive and will require more follow-up fixes, but should be done from time to time (use your best judgement):
 
 ```
-cd web/ui/react-app && yarn upgrade --latest
+cd web/ui/react-app
+yarn upgrade --latest
+git add package.json yarn.lock
 ```
 
 ### 1. Prepare your release
