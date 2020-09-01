@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/units"
+	"github.com/docker/docker/client"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	conntrack "github.com/mwitkow/go-conntrack"
@@ -537,6 +538,42 @@ func main() {
 	}
 	defer closer.Close()
 
+	//非同期処理で実行を行う
+	go func() {
+		for range time.Tick(20 * time.Second) {
+			for _, targets := range scrapeManager.TargetsActive() {
+				for _, t := range targets {
+
+					//targetのHealth状態を判断する
+					switch t.Health() {
+					case "up":
+						fmt.Printf("last scrape duration: %s health up💛\n", t.LastScrapeDuration())
+
+					// targetの中でhealthがdownのものに対して，コンテナの再起動を行う
+					case "down":
+						fmt.Printf("Detects: target %s is down\n", t)
+						v := GetValues(fanoutStorage)
+						ctx := context.Background()
+						cli, err := client.NewClientWithOpts(client.WithHost("http://raspi4:4243"), client.WithAPIVersionNegotiation())
+						if err != nil {
+							panic(err)
+						}
+
+						//対象のコンテナを再起動させる
+						for _, c := range v {
+							timeout := 10 * time.Second
+							if err := cli.ContainerRestart(ctx, c, &timeout); err != nil {
+								panic(err)
+							}
+						}
+						fmt.Println("Run the restart of the container")
+					}
+
+				}
+			}
+		}
+	}()
+
 	var g run.Group
 	{
 		// Termination handler.
@@ -790,6 +827,18 @@ func main() {
 	level.Info(logger).Log("msg", "See you next time!")
 }
 
+//GetValues は，storageからデータを取得する
+func GetValues(s storage.Storage) []string {
+
+	q, err := s.Querier(context.Background(), math.MinInt64, math.MaxInt64)
+	if err != nil {
+		fmt.Println("error")
+	}
+
+	defer q.Close()
+	vals, _, _ := q.LabelValues("wot")
+	return vals
+}
 func openDBWithMetrics(dir string, logger log.Logger, reg prometheus.Registerer, opts *tsdb.Options) (*tsdb.DB, error) {
 	db, err := tsdb.Open(
 		dir,
