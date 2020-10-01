@@ -540,7 +540,7 @@ func main() {
 
 	//非同期処理で実行を行う
 	go func() {
-		for range time.Tick(20 * time.Second) {
+		for range time.Tick(10 * time.Second) {
 			for _, targets := range scrapeManager.TargetsActive() {
 				for _, t := range targets {
 
